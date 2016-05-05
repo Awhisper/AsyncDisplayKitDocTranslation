@@ -11,6 +11,8 @@ tags: [渲染]
 
 完全没有翻译文档的经验，碰到一些用词不合适的时候，还是推荐对比这原文进行观看
 
+__有些名词，因为水平实在不佳，翻译过来后反而会让人混乱，产生误解，对照英文去看，感觉会清晰一些，哎╮(╯_╰)╭__
+
 如果大家愿意，可以一起帮忙修改，直接提pr
 
 [AsyncDisplayKitDocTranslation Github地址](https://github.com/Awhisper/AsyncDisplayKitDocTranslation)
