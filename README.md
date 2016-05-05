@@ -781,3 +781,413 @@ ASVedioNode是一个新的功能，并且专为方便高效的在滚动试图里
 
 ### 盒子模型排版
 
+ASLayout是一个自动的，异步的，纯OC盒子模型排版的布局功能，是一种CSS flex box的简单版，ComponetKit的简化版本，他的目的是让你的布局居右可扩展和复用性
+
+UIView的实例存储位置，大小是通过center和bounds的属性，当约束条件发生变化，CoreAnimation会调用layoutSubviews，告诉view需要更新界面
+
+<ASLayoutable>实例（所有的ASDisplayNodes和子类）不需要大小和位置信息，相反，AsyncDisplayKit会调用layoutSpecThatFits方法通过给一个约束来描述大小和位置信息
+
+### 术语
+
+术语可能有点混乱，所以在这里对所有ASDK自动布局进行简单的说明：
+
+<ASLayoutable>协议定义了测量物体布局的方法，符合<ASLayoutable>协议的对象就有相关的能力。通过ASLayout返回的值，必须有2个前提要确定，1，layoutable对象的大小（不一定是位置），2其所有子节点的大小与位置。通过递推树来让父节点计算布局确定最终的结果。
+
+这个协议是所有布局相关协议的家，包含所有的ASXXLayoutSpec协议，这些协议包含着布局的规则和选项，例如，ASStackLayoutSpec具有限定layoutable如何缩小或放大根据可用空间的作用。这些布局选项都保存在ASLayoutOptions类，一般来说你不需要担心布局选项。如果要创建自定义布局规则，你可以扩展去适应新的布局选项。
+
+所有的ASDisplayNodes和他的子类，以及ASLayoutSpecs都符合这个协议
+
+一个ASLayoutSpec是一个不可变的描述布局的对象，布局规范的创建要通过layoutSpecThatFits：方法，一个布局规范的创建和修改，一旦它传给ASDK，所有的属性都将变成不可变，并且任何设置改变都将导致断言
+
+每个ASLayoutSpec至少要作用在一个孩子上，ASLayoutSpec持有这个孩子，一些约束规则如ASInsetLayoutSpec，只需要一个孩子，其他的规则需要多个孩子。
+
+你不需要了解ASLayout，只需要知道他代表着一个不变的布局树，而且通过遵循<ASLayoutable>协议的对象返回
+
+### UIKit组件布局
+
+- 对于直接添加UIView，你需要手动的在`didLoad:`处理
+- 对于添加到ASDK得UIView，你可以在`layoutSpecThatFits:`处理
+
+## 布局容器
+
+AsyncDisplayKit包含有一套布局的组件，下面的LayoutSpecs允许你可以拥有多个孩子
+
+- ASStackLayoutSpec 基于CSS Flexbox的一个简化版本，可以水平或者垂直的排布堆栈组件，并制定如何对其，如何适应空间
+
+- ASStaticLayoutSpec 允许你固定孩子的偏移
+
+下面LayoutSpecs允许你布局单一的孩子
+
+- ASLayoutSpec 可以在没有孩子的时候使用
+- ASInsetLayoutSpec 可以处理Inset环绕空余型的孩子
+- ASBackgroundLayoutSpec 可以用于拉伸背后一个组件做背景
+- ASOverlayLayoutSpec 拼接上面的一个组件
+- ASCenterLayoutSpec 中心可用布局
+- ASRatioLayoutSpec 固定的比例布局图片GIF视频
+- ASRelativeLayoutSpec 9宫格缩放布局
+
+## 布局样例
+
+3个逐渐复杂的样例
+
+### NSSpain Talk例子
+[图不翻译了]
+
+```objectivec
+- (ASLayoutSpec *)layoutSpecThatFits:(ASSizeRange)constraint
+{
+  ASStackLayoutSpec *vStack = [[ASStackLayoutSpec alloc] init];
+
+  [vStack setChildren:@[titleNode, bodyNode];
+
+  ASStackLayoutSpec *hstack = [[ASStackLayoutSpec alloc] init];
+  hStack.direction          = ASStackLayoutDirectionHorizontal;
+  hStack.spacing            = 5.0;
+
+  [hStack setChildren:@[imageNode, vStack]];
+
+  ASInsetLayoutSpec *insetSpec = [ASInsetLayoutSpec insetLayoutSpecWithInsets:UIEdgeInsetsMake(5,5,5,5) child:hStack];
+
+  return insetSpec;
+}
+```
+
+### 社交APP布局
+
+[图不翻译了]
+
+```objectivec
+- (ASLayoutSpec *)layoutSpecThatFits:(ASSizeRange)constrainedSize
+{
+  // header stack
+  _userAvatarImageView.preferredFrameSize = CGSizeMake(USER_IMAGE_HEIGHT, USER_IMAGE_HEIGHT);  // constrain avatar image frame size
+
+  ASLayoutSpec *spacer = [[ASLayoutSpec alloc] init];
+  spacer.flexGrow      = YES;
+
+  ASStackLayoutSpec *headerStack = [ASStackLayoutSpec horizontalStackLayoutSpec];
+  headerStack.alignItems         = ASStackLayoutAlignItemsCenter;       // center items vertically in horizontal stack
+  headerStack.justifyContent     = ASStackLayoutJustifyContentStart;    // justify content to left side of header stack
+  headerStack.spacing            = HORIZONTAL_BUFFER;
+
+  [headerStack setChildren:@[_userAvatarImageView, _userNameLabel, spacer, _photoTimeIntervalSincePostLabel]];
+
+  // header inset stack
+
+  UIEdgeInsets insets                = UIEdgeInsetsMake(0, HORIZONTAL_BUFFER, 0, HORIZONTAL_BUFFER);
+  ASInsetLayoutSpec *headerWithInset = [ASInsetLayoutSpec insetLayoutSpecWithInsets:insets child:headerStack];
+  headerWithInset.flexShrink = YES;
+
+  // vertical stack
+
+  CGFloat cellWidth                  = constrainedSize.max.width;
+  _photoImageView.preferredFrameSize = CGSizeMake(cellWidth, cellWidth);  // constrain photo frame size
+
+  ASStackLayoutSpec *verticalStack   = [ASStackLayoutSpec verticalStackLayoutSpec];
+  verticalStack.alignItems           = ASStackLayoutAlignItemsStretch;    // stretch headerStack to fill horizontal space
+
+  [verticalStack setChildren:@[headerWithInset, _photoImageView, footerWithInset]];
+
+  return verticalStack;
+}
+```
+
+完整的ASDK工程可以查阅 example/ASDKgram
+
+### 社交APP布局2
+
+[图不翻译了]
+
+```objectivec
+- (ASLayoutSpec *)layoutSpecThatFits:(ASSizeRange)constrainedSize {
+
+  ASLayoutSpec *textSpec  = [self textSpec];
+  ASLayoutSpec *imageSpec = [self imageSpecWithSize:constrainedSize];
+  ASOverlayLayoutSpec *soldOutOverImage = [ASOverlayLayoutSpec overlayLayoutSpecWithChild:imageSpec 
+                                                                                  overlay:[self soldOutLabelSpec]];
+
+  NSArray *stackChildren = @[soldOutOverImage, textSpec];
+
+  ASStackLayoutSpec *mainStack = [ASStackLayoutSpec stackLayoutSpecWithDirection:ASStackLayoutDirectionVertical 
+                                                                         spacing:0.0
+                                                                  justifyContent:ASStackLayoutJustifyContentStart
+                                                                      alignItems:ASStackLayoutAlignItemsStretch          
+                                                                        children:stackChildren];
+
+  ASOverlayLayoutSpec *soldOutOverlay = [ASOverlayLayoutSpec overlayLayoutSpecWithChild:mainStack 
+                                                                                overlay:self.soldOutOverlay];
+
+  return soldOutOverlay;
+}
+
+- (ASLayoutSpec *)textSpec {
+  CGFloat kInsetHorizontal        = 16.0;
+  CGFloat kInsetTop               = 6.0;
+  CGFloat kInsetBottom            = 0.0;
+  UIEdgeInsets textInsets         = UIEdgeInsetsMake(kInsetTop, kInsetHorizontal, kInsetBottom, kInsetHorizontal);
+
+  ASLayoutSpec *verticalSpacer    = [[ASLayoutSpec alloc] init];
+  verticalSpacer.flexGrow         = YES;
+
+  ASLayoutSpec *horizontalSpacer1 = [[ASLayoutSpec alloc] init];
+  horizontalSpacer1.flexGrow      = YES;
+
+  ASLayoutSpec *horizontalSpacer2 = [[ASLayoutSpec alloc] init];
+  horizontalSpacer2.flexGrow      = YES;
+
+  NSArray *info1Children = @[self.firstInfoLabel, self.distanceLabel, horizontalSpacer1, self.originalPriceLabel];
+  NSArray *info2Children = @[self.secondInfoLabel, horizontalSpacer2, self.finalPriceLabel];
+  if ([ItemNode isRTL]) {
+    info1Children = [[info1Children reverseObjectEnumerator] allObjects];
+    info2Children = [[info2Children reverseObjectEnumerator] allObjects];
+  }
+
+  ASStackLayoutSpec *info1Stack = [ASStackLayoutSpec stackLayoutSpecWithDirection:ASStackLayoutDirectionHorizontal 
+                                                                          spacing:1.0
+                                                                   justifyContent:ASStackLayoutJustifyContentStart 
+                                                                       alignItems:ASStackLayoutAlignItemsBaselineLast children:info1Children];
+
+  ASStackLayoutSpec *info2Stack = [ASStackLayoutSpec stackLayoutSpecWithDirection:ASStackLayoutDirectionHorizontal 
+                                                                          spacing:0.0
+                                                                   justifyContent:ASStackLayoutJustifyContentCenter 
+                                                                       alignItems:ASStackLayoutAlignItemsBaselineLast children:info2Children];
+
+  ASStackLayoutSpec *textStack = [ASStackLayoutSpec stackLayoutSpecWithDirection:ASStackLayoutDirectionVertical 
+                                                                         spacing:0.0
+                                                                  justifyContent:ASStackLayoutJustifyContentEnd
+                                                                      alignItems:ASStackLayoutAlignItemsStretch
+                                                                        children:@[self.titleLabel, verticalSpacer, info1Stack, info2Stack]];
+
+  ASInsetLayoutSpec *textWrapper = [ASInsetLayoutSpec insetLayoutSpecWithInsets:textInsets 
+                                                                          child:textStack];
+  textWrapper.flexGrow = YES;
+
+  return textWrapper;
+}
+
+- (ASLayoutSpec *)imageSpecWithSize:(ASSizeRange)constrainedSize {
+  CGFloat imageRatio = [self imageRatioFromSize:constrainedSize.max];
+
+  ASRatioLayoutSpec *imagePlace = [ASRatioLayoutSpec ratioLayoutSpecWithRatio:imageRatio child:self.dealImageView];
+
+  self.badge.layoutPosition = CGPointMake(0, constrainedSize.max.height - kFixedLabelsAreaHeight - kBadgeHeight);
+  self.badge.sizeRange = ASRelativeSizeRangeMake(ASRelativeSizeMake(ASRelativeDimensionMakeWithPercent(0), ASRelativeDimensionMakeWithPoints(kBadgeHeight)), ASRelativeSizeMake(ASRelativeDimensionMakeWithPercent(1), ASRelativeDimensionMakeWithPoints(kBadgeHeight)));
+  ASStaticLayoutSpec *badgePosition = [ASStaticLayoutSpec staticLayoutSpecWithChildren:@[self.badge]];
+
+  ASOverlayLayoutSpec *badgeOverImage = [ASOverlayLayoutSpec overlayLayoutSpecWithChild:imagePlace overlay:badgePosition];
+  badgeOverImage.flexGrow = YES;
+
+  return badgeOverImage;
+}
+
+- (ASLayoutSpec *)soldOutLabelSpec {
+  ASCenterLayoutSpec *centerSoldOutLabel = [ASCenterLayoutSpec centerLayoutSpecWithCenteringOptions:ASCenterLayoutSpecCenteringXY 
+  sizingOptions:ASCenterLayoutSpecSizingOptionMinimumXY child:self.soldOutLabelFlat];
+  ASStaticLayoutSpec *soldOutBG = [ASStaticLayoutSpec staticLayoutSpecWithChildren:@[self.soldOutLabelBackground]];
+  ASCenterLayoutSpec *centerSoldOut = [ASCenterLayoutSpec centerLayoutSpecWithCenteringOptions:ASCenterLayoutSpecCenteringXY   sizingOptions:ASCenterLayoutSpecSizingOptionDefault child:soldOutBG];
+  ASBackgroundLayoutSpec *soldOutLabelOverBackground = [ASBackgroundLayoutSpec backgroundLayoutSpecWithChild:centerSoldOutLabel background:centerSoldOut];
+  return soldOutLabelOverBackground;
+}
+```
+
+完整的ASDK工程可以查阅 example/CatDealsCollectionView
+
+## 布局调试
+
+使用ASC II Art 调试
+
+ASLayoutSpecPlayground App
+
+## 布局选项
+当使用ASDK的时候，你有3种布局选择，注意：UIKit的autolayout不支持
+
+### 手动计算布局
+
+最原始的布局方式，类似于UIKit的布局方法，ASViewControllers使用这种布局方法
+
+[ASDisplayNode calculateSizeThatFits:] vs. [UIView sizeThatFits:]
+
+[ASDisplayNode layout] vs. [UIView layoutSubviews]
+
+优势：（针对UIKit）
+
+- 消除了所有主线程布局的开销
+- 结果缓存
+
+缺点：（针对UIKit）
+
+- 代码之间会有重复代码
+- 逻辑不可重用
+
+# 优化
+## 层处理 Layer-Backing
+
+有些时候，大幅度使用Layer而不是使用views，可以提高你的app的性能，但是手动的把基于view开发的界面代码改为基于layer的界面代码，非常的费劲，如果有时候因为要开启触摸或者view特定的功能的时候，你可能要功能回退
+
+当你使用ASDK的node的时候，如果你打算把所有的view转换成layer，只需要一行代码
+
+`rootNode.layerBacked = YES;`
+
+如果你想回退，也只需要删除这一行，我们建议不需要触摸处理的所有视图都开启
+
+## 同步并发
+
+敬请期待......
+
+## 子树光栅化
+
+预压缩，扁平化整个视图层级到一个图层，也可以提高性能，node也可以帮你做这件事
+
+`rootNode.shouldRasterizeDescendants = YES;`
+
+你的整个node层级都会渲染在一个layer下
+
+## 绘制优先级
+
+敬请期待......
+
+# 开发工具
+
+## 点击区域扩展
+
+ASDisplayNode有一个hitTestSlop属性，是UIEdgeInsets，当这个值非零的时候，可以增加点击区域，更加方便进行点击
+
+ASDisplayNode是所有节点的基类，所以这个属性可以在任何node上使用
+
+注意：
+这会影响-hitTest和-pointInside的默认实现，如果子类需要调用，请忽略
+
+节点的触摸事件受到其父的边界+父HitTestSlop限制，如果想扩展父节点下的一个孩子节点的边界，请直接扩展父节点
+
+## 批量获取API
+ASDK的批量获取API可以很方便的让开发者获取大量新数据，如果用户滚动一个列表或者宫格的view，会自动的在特定范围内批量抓取，时机是由ASDK触发的
+
+作为开发者，可以定义批量抓取的时机，ASTableView和ASCollectionView有个leadingScreensForBatching属性，用来处理这个，默认是2.0
+
+为了实现批量抓取，必须实现2个delegate
+
+`- (BOOL)shouldBatchFetchForTableView:(ASTableView *)tableView`
+
+或者
+
+`- (BOOL)shouldBatchFetchForCollectionView:(ASCollectionView *)collectionView`
+
+在这两个方法你来决定当用户滚动到一定范围的时候，批量获取是否启动。一般是基于数据是否已经抓取完毕，或者本地操作来决定的
+
+如果`- (BOOL)shouldBatchFetchForCollectionView:(ASCollectionView *)collectionView,`返回NO，就不会产生新的批量抓取处理，如果返回YES，批量抓取就会开始，会调用下面2个方法
+
+`- (void)tableView:(ASTableView *)tableView willBeginBatchFetchWithContext:(ASBatchContext *)context;`
+
+或者
+
+`- (void)collectionView:(ASCollectionView *)collectionView willBeginBatchFetchWithContext:(ASBatchContext *)context;`
+
+首先你要小心，这两个方法是在后台线程被调用的，如果你必须在主线程上操作，你就得把它分派到主线程去完成这些操作
+
+当你完成数据读取后，要让ASDK知道你已经完成了，必须调用completeBatchFetching:，并且传YES,这就确保整批提取机制保持同步，下一次提取循环可以正常工作，只有传YES上下文才知道在必要的时候准备下一次更新，如果传NO，什么都不会发生
+
+批量获取demo
+```objectivec
+- (BOOL)shouldBatchFetchForTableView:(ASTableView *)tableView 
+{
+  // Decide if the batch fetching mechanism should kick in
+  if (_stillDataToFetch) {
+    return YES;
+  }
+  return NO;
+}
+
+- (void)tableView:(ASTableView *)tableView willBeginBatchFetchWithContext:(ASBatchContext *)context 
+{
+  // Fetch data most of the time asynchronoulsy from an API or local database
+  NSArray *data = ...;
+
+  // Insert data into table or collection view
+  [self insertNewRowsInTableView:newPhotos];
+
+  // Decide if it's still necessary to trigger more batch fetches in the future
+  _stillDataToFetch = ...;
+
+  // Properly finish the batch fetch
+  [context completeBatchFetching:YES]
+}
+```
+
+查看更多demo可以看
+
+- ASDKgram
+- Kittens
+- CatDealsCollectionView
+- ASCollectionView
+
+
+## 图片修改块
+
+敬请期待......
+
+## 占位符渐隐
+
+敬请期待......
+
+## 点击区域可视
+### 可视化的点击区域
+
+这是一个调试功能，把任何的ASControlNodes加上半透明高亮，点击，手势识别，这个范围定义为ASControlNodes的frame+hitTestSlop的范围
+
+在下面的截图中你可以看到
+
+- 头像图片区域+用户名区域可点击，
+- hitTestSlop扩大的点击范围，可以显示出来，更容易点击
+- hitTestSlop缩小的点击范围，也可以观察出来
+
+[图不翻译了]
+
+### 限制
+在收到父节点clipsToBounds的剪裁
+
+### 用法
+在你的Appdelegate.m中
+添加[ASControlNode setEnableHitTestDebug:YES] 到你的didFinishLaunchingWithOptions: 方法的最上方，
+确保在任何ASControllNode初始化前调用这个方法，包括ASButtonNodes, ASImageNodes, and ASTextNodes.
+
+## 图片缩放
+
+可视化的ASImageNode.image像素缩放
+如果像素图像不符合像素大小，这个调试工具会增加了一个红色的文本出现在ASImageNode右下角，
+
+```objectivec
+imageSizeInPixels = image.size * image.scale
+boundsSizeInPixels = bounds.size * contentsScale
+scaleFactor = imageSizeInPixels / boundsSizeInPixels
+
+if (scaleFactor != 1.0) {
+      NSString *scaleString = [NSString stringWithFormat:@"%.2fx", scaleFactor];
+      _debugLabelNode.hidden = NO;
+}
+```
+此调试工具在下面的情况非常有用
+
+- 下载和展现的图像数据过多
+- 放大低质量的图片
+
+在下面的截图中，你可以看到，低质量图片被放大因此右下角有文字，你需要优化你的功能，控制最终的尺寸和最佳的图像
+
+[图不翻译了]
+
+### 使用
+
+在appdelegate.m文件中
+
+导入AsyncDisplayKit+Debug.h
+
+添加[ASImageNode setShouldShowImageScalingOverlay:YES] 到didFinishLaunchingWithOptions: 方法的最上方
+
+
+# 测试中的功能
+## 隐藏节点层次管理
+
+先不翻译了吧。。未稳定的功能
+
+## 排版动画API
+
+先不翻译了把。。未稳定的功能
