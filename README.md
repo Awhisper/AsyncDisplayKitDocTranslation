@@ -24,7 +24,7 @@ AsyncDisplayKit的基础单元是Node，ASDisplayNode是UIView的抽象，就好
 
 iOS设备有一条黄金准则，想要保持用户交互的流畅和快速响应，你的app必须保证渲染达到每秒60帧。意思就是主线程只有1/60秒的时间来推动每一帧，执行所有布局和绘图代码的时间只有16毫秒！而且由于一些系统级别的开销，你的布局绘图代码一般情况超过10毫秒，就可能引起掉帧
 
-AsyncDisplayKit可以让你把图形解码，文本计算，渲染，等其他UI开销的操作移出主线程，还有一些其他的小把戏，我们后面会降到
+AsyncDisplayKit可以让你把图形解码，文本计算，渲染，等其他UI开销的操作移出主线程，还有一些其他的小把戏，我们后面会讲到
 
 ### Nodes节点
 如果你之前使用过views，那么你应该已经知道如何使用nodes，大部分的方法都有一个等效的node，大部分的UIView和CALayer的属性都有类似的可用的。任何情况都会有一点点命名差异（例如，clipsToBounds和masksToBounds），node基本上都是默认使用UIView的名字，唯一的例外是node使用position而不是center
